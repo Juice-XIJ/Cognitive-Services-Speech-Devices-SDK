@@ -4,12 +4,22 @@ package com.microsoft.coginitiveservices.speech.samples.sdsdkstarterapp;
 import android.content.Intent;
 
 import android.content.res.AssetManager;
+import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.design.widget.NavigationView;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.text.Layout;
 import android.text.TextUtils;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -27,29 +37,37 @@ import com.microsoft.cognitiveservices.speech.translation.SpeechTranslationConfi
 import com.microsoft.cognitiveservices.speech.translation.TranslationRecognizer;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.microsoft.cognitiveservices.speech.ResultReason.RecognizedKeyword;
 import static com.microsoft.cognitiveservices.speech.ResultReason.RecognizingSpeech;
+import static junit.framework.Assert.assertNotNull;
 
 public class MainActivity extends AppCompatActivity {
 
     // Subscription
-    private static final String SpeechSubscriptionKey = "<enter your subscription info here>";
+    private static final String SpeechSubscriptionKey = "918301eb1a8e40dcb9b6968fa4a2d027";
     private static final String SpeechRegion = "westus"; // You can change this, if you want to test the intent, and your LUIS region is different.
-    private static final String LuisSubscriptionKey = "<enter your subscription info here>";
+    private static final String LuisSubscriptionKey = "";
     private static final String LuisRegion = "westus2"; // you can change this, if you want to test the intent, and your LUIS region is different.
-    private static final String LuisAppId = "<enter your LUIS AppId>";
+    private static final String LuisAppId = "43929081ad0a47fba3294533cf1af342";
 
     private static final String Keyword = "Computer";
     private static final String KeywordModel = "kws-computer.zip";
-    private static final String DeviceGeometry = "Circular6+1";
-    private static final String SelectedGeometry = "Circular6+1";
+    private static String DeviceGeometry = "Linear4";
+     private static String SelectedGeometry = "Linear4";
+    //private static final String DeviceGeometry = "Circular6+1";
+   // private static final String SelectedGeometry = "Circular6+1";
 
 
     // Note: point this to a wav file in case you don't want to
@@ -65,9 +83,13 @@ public class MainActivity extends AppCompatActivity {
     private Button recognizeIntentKwsButton;
     private Button selectRecoLanguageButton;
     private Button selectTranLanguageButton;
+    private Button meetingButton;
+    private Button ttsButton;
     private Button translateButton;
     private TextView recognizeLanguageTextView;
     private TextView translateLanguageTextView;
+
+    private Toolbar mainToolbar;
     private final HashMap<String, String> intentIdMap = new HashMap<>();
     private static String languageRecognition = "en-US";
 	private static String translateLanguage = "zh-Hans";
@@ -99,7 +121,40 @@ public class MainActivity extends AppCompatActivity {
 
         return speechConfig;
     }
+    public boolean onCreateOptionsMenu(Menu menu){
+        getMenuInflater().inflate(R.menu.settingmenu,menu);
+        return true;
+    }
+    public boolean onOptionsItemSelected(MenuItem item){
+        switch(item.getItemId()){
+            case R.id.RecoLanguage : {
+                Intent selectLanguageIntent = new Intent(MainActivity.this,listLanguage.class);
+                selectLanguageIntent.putExtra("RecognizeOrTranslate", 0);
+                startActivityForResult(selectLanguageIntent, SELECT_RECOGNIZE_LANGUAGE_REQUEST);
+                return true;
+            }
+            case R.id.TranLanguage :{
+                Intent selectLanguageIntent = new Intent(MainActivity.this, listLanguage.class);
+                selectLanguageIntent.putExtra("RecognizeOrTranslate", 1);
+                startActivityForResult(selectLanguageIntent, SELECT_TRANSLATE_LANGUAGE_REQUEST);
+                return true;
+            }
+            case R.id.LinearDevice :{
+                DeviceGeometry = "Linear4";
+                SelectedGeometry = "Linear4";
+                return true;
+            }
+            case R.id.CircularDevice:{
+                DeviceGeometry = "Circular6+1";
+                SelectedGeometry = "Circular6+1";
+                return true;
+            }
+            default:
+                return super.onContextItemSelected(item);
+        }
 
+
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -117,6 +172,10 @@ public class MainActivity extends AppCompatActivity {
         selectTranLanguageButton = findViewById(R.id.buttonSelectTranLanguage);
         recognizeLanguageTextView = findViewById(R.id.textViewRecognitionLanguage);
         translateLanguageTextView = findViewById(R.id.textViewTranslateLanguage);
+        ttsButton = findViewById(R.id.buttonTts);
+        meetingButton = findViewById(R.id.buttonMeeting);
+        mainToolbar = findViewById(R.id.mainToolbar);
+        setSupportActionBar(mainToolbar);
 
 
 
@@ -229,6 +288,7 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(selectLanguageIntent, SELECT_TRANSLATE_LANGUAGE_REQUEST);
         });
 
+
         ///////////////////////////////////////////////////
         // recognize Once with intermediate results
         ///////////////////////////////////////////////////
@@ -237,6 +297,7 @@ public class MainActivity extends AppCompatActivity {
 
             disableButtons();
             clearTextBox();
+            if(!checkSystemTime()) return;
 
             try {
                 final SpeechRecognizer reco = new SpeechRecognizer(this.getSpeechConfig(), this.getAudioConfig());
@@ -274,6 +335,8 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(final View view) {
                 final Button clickedButton = (Button) view;
                 disableButtons();
+                if(!checkSystemTime()) return;
+
                 if (continuousListeningStarted) {
                     if (reco != null) {
                         final Future<Void> task = reco.stopContinuousRecognitionAsync();
@@ -341,6 +404,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 final Button clickedButton = (Button) view;
                 disableButtons();
+                if(!checkSystemTime()) return;
 
                 if (continuousListeningStarted) {
                     if (reco != null) {
@@ -388,7 +452,7 @@ public class MainActivity extends AppCompatActivity {
                     reco.recognized.addEventListener((o, finalResultEventArgs) -> {
                         String s = finalResultEventArgs.getResult().getText();
                         ResultReason rr = finalResultEventArgs.getResult().getReason();
-                        Log.i(logTag, "got a final result: " + s + " result reason:" + rr.toString());
+
                         if(rr == RecognizedKeyword) {
                             content.add("");
                         }
@@ -398,7 +462,9 @@ public class MainActivity extends AppCompatActivity {
                             content.set(index + 1, index.toString() + ". " + s);
                             content.set(0, "say `" + Keyword + "`...");
                             setRecognizedText(TextUtils.join(delimiter, content));
+                            Log.i(logTag, "got a final result: " +" " + Integer.toString(index +1) + " " + s + " result reason:" + rr.toString());
                         }
+
                     });
 
                     final KeywordRecognitionModel keywordRecognitionModel = KeywordRecognitionModel.fromStream(assets.open(KeywordModel), Keyword, true);
@@ -434,6 +500,7 @@ public class MainActivity extends AppCompatActivity {
 
             disableButtons();
             clearTextBox();
+            if(!checkSystemTime()) return;
 
             content.add("");
             content.add("");
@@ -493,6 +560,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 final Button clickedButton = (Button) view;
                 disableButtons();
+                if(!checkSystemTime()) return;
 
                 if (continuousListeningStarted) {
                     if (reco != null) {
@@ -557,7 +625,7 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         ResultReason rr = finalResultEventArgs.getResult().getReason();
-                        Log.i(logTag, "got a final result: " + s + " result reason:" + rr.toString());
+
                         if(rr == RecognizedKeyword) {
                             content.add("");
                         }
@@ -567,6 +635,7 @@ public class MainActivity extends AppCompatActivity {
                             content.set(index + 1, index.toString() + ". " + s + " [intent: " + intent + "]");
                             content.set(0, "say `" + Keyword + "`...");
                             setRecognizedText(TextUtils.join(delimiter, content));
+                            Log.i(logTag, "got a final result: " + " " + Integer.toString(index+1)+" "+ s + " result reason:" + rr.toString());
                         }
                     });
 
@@ -588,7 +657,44 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+        ///////////////////////////////////////////////////
+        // Neural TTS
+        ///////////////////////////////////////////////////
+        ttsButton.setOnClickListener( view -> {
+            if(!checkSystemTime()) return;
+            /*
+            try{
+                SpeechConfig speechConfig = SpeechConfig.fromSubscription(SpeechSubscriptionKey, SpeechRegion);
+                speechConfig.setSpeechSynthesisVoiceName("Microsoft Server Speech Text to Speech Voice (en-GB, HazelRUS)");
+                SpeechSynthesizer synthesizer = new SpeechSynthesizer(speechConfig);
+                assertNotNull(synthesizer);
+                SpeechSynthesisResult result1 = synthesizer.SpeakTextAsync(" You can use the Speech SDK to add speech-to-text (speech recognition/SR), intent, translation, and text-to-speech (TTS) capabilities to your apps. The Speech Services also have REST APIs that works with any programming language that can make HTTP requests.").get();
+                // "{{{text1}}}" has now completed rendering to default speakers
+                 byte[] wav = result1.getAudioData();
+                 result1.close();
+                synthesizer.close();
+                speechConfig.close();
+                  //play the audio file
+                AudioPlayingThread audioplay = new AudioPlayingThread();
+                audioplay.write(wav);
+                audioplay.run();
+            } catch(Exception ex){
+                    System.out.println(ex.getMessage());
+                    displayException(ex);
+            }
+            */
+        });
 
+
+        ///////////////////////////////////////////////////
+        // Meeting
+        ///////////////////////////////////////////////////
+        meetingButton.setOnClickListener(view ->{
+            if(!checkSystemTime()) return;
+            Intent meetingIntent = new Intent(this, enrollment.class);
+            startActivity(meetingIntent);
+
+        });
         ///////////////////////////////////////////////////
         // recognize and translate
         ///////////////////////////////////////////////////
@@ -599,10 +705,13 @@ public class MainActivity extends AppCompatActivity {
             private String buttonText = "";
             private ArrayList<String> content = new ArrayList<>();
 
+
             @Override
             public void onClick(final View view) {
                 final Button clickedButton = (Button) view;
                 disableButtons();
+                if(!checkSystemTime()) return;
+
                 if (continuousListeningStarted) {
                     if (reco != null) {
                         final Future<Void> task = reco.stopContinuousRecognitionAsync();
@@ -756,5 +865,77 @@ public class MainActivity extends AppCompatActivity {
     static {
         s_executorService = Executors.newCachedThreadPool();
     }
+    public class AudioPlayingThread implements Runnable
+    {
+        private AudioTrack audioTrack;
+        private Queue<byte[]> queue;
 
+        public AudioPlayingThread()
+        {
+            audioTrack = new AudioTrack(
+                    new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build(),
+                    new AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(16000)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build(),
+                    AudioTrack.getMinBufferSize(16000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT) * 2,
+                    AudioTrack.MODE_STREAM,
+                    AudioManager.AUDIO_SESSION_ID_GENERATE);
+            audioTrack.play();
+
+            queue = new LinkedBlockingQueue<byte[]>(10);
+        }
+
+        public void run()
+        {
+            while (true)
+            {
+                if (!queue.isEmpty())
+                {
+                    byte[] dataBlock = queue.remove();
+                    audioTrack.write(dataBlock, 44, dataBlock.length - 44);
+                }
+            }
+        }
+
+        public void write(byte[] data)
+        {
+            if (queue.size() < 10) {
+                queue.add(data);
+            }
+        }
+
+        public void pause()
+        {
+            try {
+                queue.clear();
+                int audioState = audioTrack.getState();
+                if (audioTrack != null && audioState == AudioTrack.STATE_INITIALIZED) {
+                    audioTrack.pause();
+                    audioTrack.flush();
+                    audioTrack.play();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    //make sure the system time is synchronized.
+    public boolean checkSystemTime(){
+        Calendar calendar = Calendar.getInstance();
+        SimpleDateFormat simpledateformat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        String date = simpledateformat.format(calendar.getTime());
+        String year = date.substring(6,10);
+        Log.i("System time" , date);
+        if(Integer.valueOf(year) < 2018){
+            Log.i("System time" , "Please synchronize system time");
+            setTextbox("System time is " + date + "\n" +"Please synchronize system time");
+            return false;
+        }
+        return true;
+    }
 }
