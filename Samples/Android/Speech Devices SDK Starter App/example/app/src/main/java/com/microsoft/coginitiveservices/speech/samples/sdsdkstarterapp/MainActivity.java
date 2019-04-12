@@ -8,10 +8,7 @@ import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.design.widget.NavigationView;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Layout;
@@ -40,7 +37,6 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
@@ -49,23 +45,24 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.microsoft.coginitiveservices.speech.samples.sdsdkstarterapp.LanguageCode.getCode;
 import static com.microsoft.cognitiveservices.speech.ResultReason.RecognizedKeyword;
 import static com.microsoft.cognitiveservices.speech.ResultReason.RecognizingSpeech;
-import static junit.framework.Assert.assertNotNull;
+
 
 public class MainActivity extends AppCompatActivity {
 
     // Subscription
-    private static final String SpeechSubscriptionKey = "918301eb1a8e40dcb9b6968fa4a2d027";
-    private static final String SpeechRegion = "westus"; // You can change this, if you want to test the intent, and your LUIS region is different.
-    private static final String LuisSubscriptionKey = "";
-    private static final String LuisRegion = "westus2"; // you can change this, if you want to test the intent, and your LUIS region is different.
-    private static final String LuisAppId = "43929081ad0a47fba3294533cf1af342";
+    private static String SpeechSubscriptionKey = "918301eb1a8e40dcb9b6968fa4a2d027";
+    private static String SpeechRegion = "westus"; // You can change this, if you want to test the intent, and your LUIS region is different.
+    private static String LuisSubscriptionKey = "499f42ea79f04a8db71929d8e46f3ff0";
+    private static String LuisRegion = "westus2"; // you can change this, if you want to test the intent, and your LUIS region is different.
+    private static String LuisAppId = "43929081ad0a47fba3294533cf1af342";
 
     private static final String Keyword = "Computer";
     private static final String KeywordModel = "kws-computer.zip";
     private static String DeviceGeometry = "Linear4";
-     private static String SelectedGeometry = "Linear4";
+    private static String SelectedGeometry = "Linear4";
     //private static final String DeviceGeometry = "Circular6+1";
    // private static final String SelectedGeometry = "Circular6+1";
 
@@ -81,22 +78,18 @@ public class MainActivity extends AppCompatActivity {
     private Button recognizeKwsButton;
     private Button recognizeIntentButton;
     private Button recognizeIntentKwsButton;
-    private Button selectRecoLanguageButton;
-    private Button selectTranLanguageButton;
     private Button meetingButton;
-    private Button ttsButton;
     private Button translateButton;
     private TextView recognizeLanguageTextView;
     private TextView translateLanguageTextView;
-
     private Toolbar mainToolbar;
     private final HashMap<String, String> intentIdMap = new HashMap<>();
     private static String languageRecognition = "en-US";
-	private static String translateLanguage = "zh-Hans";
-	private HashMap<String, String> mapRecolanguageCode = new HashMap<>();
-	private HashMap<String, String> mapTranlanguageCode = new HashMap<>();
-    static final int SELECT_RECOGNIZE_LANGUAGE_REQUEST = 0;  // The request code
+   	private static String translateLanguage = "zh-Hans";
+	static final int SELECT_RECOGNIZE_LANGUAGE_REQUEST = 0;  // The request code
     static final int SELECT_TRANSLATE_LANGUAGE_REQUEST = 1;  // The request code
+    static final int Setting_keys = 2;
+    static final int SELECT_DEVICE_MICROPHONE_REQUEST = 3;
 
 
     private AudioConfig getAudioConfig() {
@@ -111,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
         return AudioConfig.fromDefaultMicrophoneInput();
     }
 
-    private SpeechConfig getSpeechConfig() {
+    public static SpeechConfig getSpeechConfig() {
         SpeechConfig speechConfig = SpeechConfig.fromSubscription(SpeechSubscriptionKey, SpeechRegion);
 
         // PMA parameters
@@ -126,31 +119,33 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
     public boolean onOptionsItemSelected(MenuItem item){
-        switch(item.getItemId()){
-            case R.id.RecoLanguage : {
-                Intent selectLanguageIntent = new Intent(MainActivity.this,listLanguage.class);
-                selectLanguageIntent.putExtra("RecognizeOrTranslate", 0);
-                startActivityForResult(selectLanguageIntent, SELECT_RECOGNIZE_LANGUAGE_REQUEST);
-                return true;
-            }
-            case R.id.TranLanguage :{
-                Intent selectLanguageIntent = new Intent(MainActivity.this, listLanguage.class);
-                selectLanguageIntent.putExtra("RecognizeOrTranslate", 1);
-                startActivityForResult(selectLanguageIntent, SELECT_TRANSLATE_LANGUAGE_REQUEST);
-                return true;
-            }
-            case R.id.LinearDevice :{
-                DeviceGeometry = "Linear4";
-                SelectedGeometry = "Linear4";
-                return true;
-            }
-            case R.id.CircularDevice:{
-                DeviceGeometry = "Circular6+1";
-                SelectedGeometry = "Circular6+1";
-                return true;
-            }
-            default:
-                return super.onContextItemSelected(item);
+            switch(item.getItemId()){
+                case R.id.subscriptionKey:{
+                    Intent subscriptionKeyIntent = new Intent(this, subcriptionKey.class );
+                    startActivityForResult(subscriptionKeyIntent, Setting_keys);
+                    return true;
+                }
+                case R.id.RecoLanguage : {
+                    Intent selectLanguageIntent = new Intent(this,listLanguage.class);
+                    selectLanguageIntent.putExtra("RecognizeOrTranslate", SELECT_RECOGNIZE_LANGUAGE_REQUEST);
+                    startActivityForResult(selectLanguageIntent, SELECT_RECOGNIZE_LANGUAGE_REQUEST);
+                    return true;
+                }
+                case R.id.TranLanguage :{
+                    Intent selectLanguageIntent = new Intent(this, listLanguage.class);
+                    selectLanguageIntent.putExtra("RecognizeOrTranslate", SELECT_TRANSLATE_LANGUAGE_REQUEST);
+                    startActivityForResult(selectLanguageIntent, SELECT_TRANSLATE_LANGUAGE_REQUEST);
+                    return true;
+                }
+                case R.id.deviceMicrophone: {
+                    Intent selectLanguageIntent = new Intent(this, listLanguage.class);
+                    selectLanguageIntent.putExtra("RecognizeOrTranslate", SELECT_DEVICE_MICROPHONE_REQUEST);
+                    startActivityForResult(selectLanguageIntent, SELECT_DEVICE_MICROPHONE_REQUEST);
+                    return true;
+                }
+
+                default:
+                    return super.onContextItemSelected(item);
         }
 
 
@@ -168,125 +163,26 @@ public class MainActivity extends AppCompatActivity {
         recognizeIntentKwsButton = findViewById(R.id.buttonRecognizeIntentKws);
         recognizedTextView.setMovementMethod(new ScrollingMovementMethod());
         translateButton = findViewById(R.id.buttonTranslate);
-        selectRecoLanguageButton = findViewById(R.id.buttonSelectRecoLanguage);
-        selectTranLanguageButton = findViewById(R.id.buttonSelectTranLanguage);
         recognizeLanguageTextView = findViewById(R.id.textViewRecognitionLanguage);
         translateLanguageTextView = findViewById(R.id.textViewTranslateLanguage);
-        ttsButton = findViewById(R.id.buttonTts);
         meetingButton = findViewById(R.id.buttonMeeting);
         mainToolbar = findViewById(R.id.mainToolbar);
+
         setSupportActionBar(mainToolbar);
-
-
 
         ///////////////////////////////////////////////////
         // check if we have a valid key
         ///////////////////////////////////////////////////
-        if (SpeechSubscriptionKey.startsWith("<") || SpeechSubscriptionKey.endsWith(">")) {
-            recognizedTextView.setText("Error: Replace SpeechSubscriptionKey with your actual subscription key and re-compile this application!");
-            return;
+        if(!checkSpeechKey()) {
+            recognizedTextView.setText("Warning: Please update SpeechSubscriptionKey with your actual subscription key!");
         }
-
-        if (LuisSubscriptionKey.startsWith("<") || LuisSubscriptionKey.endsWith(">")) {
-            recognizedTextView.setText(recognizedTextView.getText() + "\nWarning: Replace LuisSubscriptionKey with your actual Luis subscription key to use Intents!");
+        if(!checkLuisKey()){
+            recognizedTextView.setText(recognizedTextView.getText() + "\nWarning: Please update LuisSubscriptionKey with your actual Luis subscription key to use Intents!");
         }
 
         // save the asset manager
         final AssetManager assets = this.getAssets();
-        //set recognize language code
-        {
-            mapRecolanguageCode.put("English (United States)", "en-US");
-            mapRecolanguageCode.put("German (Germany)", "de-DE");
-            mapRecolanguageCode.put("Chinese (Mandarin, simplified)", "zh-CN");
-            mapRecolanguageCode.put("English (India)", "en-IN");
-            mapRecolanguageCode.put("Spanish (Spain)", "es-ES");
-            mapRecolanguageCode.put("French (France)", "fr-FR");
-            mapRecolanguageCode.put("Italian (Italy)", "it-IT");
-            mapRecolanguageCode.put("Portuguese (Brazil)", "pt-BR");
-            mapRecolanguageCode.put("Russian (Russia)", "ru-RU");
-        }
 
-        //set translate language code
-        {
-            mapTranlanguageCode.put("Afrikaans", "af");
-            mapTranlanguageCode.put("Arabic", "ar");
-            mapTranlanguageCode.put("Bangla", "bn");
-            mapTranlanguageCode.put("Bosnian (Latin)", "bs");
-            mapTranlanguageCode.put("Bulgarian", "bg");
-            mapTranlanguageCode.put("Cantonese (Traditional)", "yue");
-            mapTranlanguageCode.put("Catalan", "ca");
-            mapTranlanguageCode.put("Chinese Simplified", "zh-Hans");
-            mapTranlanguageCode.put("Chinese Traditional", "zh-Hant");
-            mapTranlanguageCode.put("Croatian", "hr");
-            mapTranlanguageCode.put("Czech", "cs");
-            mapTranlanguageCode.put("Danish", "da");
-            mapTranlanguageCode.put("Dutch", "nl");
-            mapTranlanguageCode.put("English", "en");
-            mapTranlanguageCode.put("Estonian", "et");
-            mapTranlanguageCode.put("Fijian", "fj");
-            mapTranlanguageCode.put("Filipino", "fil");
-            mapTranlanguageCode.put("Finnish", "fi");
-            mapTranlanguageCode.put("French", "fr");
-            mapTranlanguageCode.put("German", "de");
-            mapTranlanguageCode.put("Greek", "el");
-            mapTranlanguageCode.put("Haitian Creole", "ht");
-            mapTranlanguageCode.put("Hebrew", "he");
-            mapTranlanguageCode.put("Hindi", "hi");
-            mapTranlanguageCode.put("Hmong Daw", "mww");
-            mapTranlanguageCode.put("Hungarian", "hu");
-            mapTranlanguageCode.put("Indonesian", "id");
-            mapTranlanguageCode.put("Italian", "it");
-            mapTranlanguageCode.put("Japanese", "ja");
-            mapTranlanguageCode.put("Kiswahili", "sw");
-            mapTranlanguageCode.put("Klingon", "tlh");
-            mapTranlanguageCode.put("Klingon (plqaD)", "tlh-Qaak");
-            mapTranlanguageCode.put("Korean", "ko");
-            mapTranlanguageCode.put("Latvian", "lv");
-            mapTranlanguageCode.put("Lithuanian", "lt");
-            mapTranlanguageCode.put("Malagasy", "mg");
-            mapTranlanguageCode.put("Malay", "ms");
-            mapTranlanguageCode.put("Maltese", "mt");
-            mapTranlanguageCode.put("Norwegian", "nb");
-            mapTranlanguageCode.put("Persian", "fa");
-            mapTranlanguageCode.put("Polish", "pl");
-            mapTranlanguageCode.put("Portuguese", "pt");
-            mapTranlanguageCode.put("Queretaro Otomi", "otq");
-            mapTranlanguageCode.put("Romanian", "ro");
-            mapTranlanguageCode.put("Russian", "ru");
-            mapTranlanguageCode.put("Samoan", "sm");
-            mapTranlanguageCode.put("Serbian (Cyrillic)", "sr-Cyrl");
-            mapTranlanguageCode.put("Serbian (Latin)", "sr-Latn");
-            mapTranlanguageCode.put("Slovak", "sk");
-            mapTranlanguageCode.put("Slovenian", "sl");
-            mapTranlanguageCode.put("Spanish", "es");
-            mapTranlanguageCode.put("Swedish", "sv");
-            mapTranlanguageCode.put("Tahitian", "ty");
-            mapTranlanguageCode.put("Tamil", "ta");
-            mapTranlanguageCode.put("Thai", "th");
-            mapTranlanguageCode.put("Tongan", "to");
-            mapTranlanguageCode.put("Turkish", "tr");
-            mapTranlanguageCode.put("Ukrainian", "uk");
-            mapTranlanguageCode.put("Urdu", "ur");
-            mapTranlanguageCode.put("Vietnamese", "vi");
-            mapTranlanguageCode.put("Welsh", "cy");
-            mapTranlanguageCode.put("Yucatec Maya", "yua");
-        }
-
-        //select recognize language
-        selectRecoLanguageButton.setOnClickListener(view -> {
-
-            Intent selectLanguageIntent = new Intent(this, listLanguage.class);
-            selectLanguageIntent.putExtra("RecognizeOrTranslate", 0);
-            startActivityForResult(selectLanguageIntent, SELECT_RECOGNIZE_LANGUAGE_REQUEST);
-        });
-
-        //select translate language
-        selectTranLanguageButton.setOnClickListener(view -> {
-
-            Intent selectLanguageIntent = new Intent(this, listLanguage.class);
-            selectLanguageIntent.putExtra("RecognizeOrTranslate", 1);
-            startActivityForResult(selectLanguageIntent, SELECT_TRANSLATE_LANGUAGE_REQUEST);
-        });
 
 
         ///////////////////////////////////////////////////
@@ -300,6 +196,8 @@ public class MainActivity extends AppCompatActivity {
             if(!checkSystemTime()) return;
 
             try {
+                Log.i(logTag, languageRecognition);
+
                 final SpeechRecognizer reco = new SpeechRecognizer(this.getSpeechConfig(), this.getAudioConfig());
                 reco.recognizing.addEventListener((o, speechRecognitionResultEventArgs) -> {
                     final String s = speechRecognitionResultEventArgs.getResult().getText();
@@ -657,33 +555,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        ///////////////////////////////////////////////////
-        // Neural TTS
-        ///////////////////////////////////////////////////
-        ttsButton.setOnClickListener( view -> {
-            if(!checkSystemTime()) return;
-            /*
-            try{
-                SpeechConfig speechConfig = SpeechConfig.fromSubscription(SpeechSubscriptionKey, SpeechRegion);
-                speechConfig.setSpeechSynthesisVoiceName("Microsoft Server Speech Text to Speech Voice (en-GB, HazelRUS)");
-                SpeechSynthesizer synthesizer = new SpeechSynthesizer(speechConfig);
-                assertNotNull(synthesizer);
-                SpeechSynthesisResult result1 = synthesizer.SpeakTextAsync(" You can use the Speech SDK to add speech-to-text (speech recognition/SR), intent, translation, and text-to-speech (TTS) capabilities to your apps. The Speech Services also have REST APIs that works with any programming language that can make HTTP requests.").get();
-                // "{{{text1}}}" has now completed rendering to default speakers
-                 byte[] wav = result1.getAudioData();
-                 result1.close();
-                synthesizer.close();
-                speechConfig.close();
-                  //play the audio file
-                AudioPlayingThread audioplay = new AudioPlayingThread();
-                audioplay.write(wav);
-                audioplay.run();
-            } catch(Exception ex){
-                    System.out.println(ex.getMessage());
-                    displayException(ex);
-            }
-            */
-        });
 
 
         ///////////////////////////////////////////////////
@@ -815,6 +686,7 @@ public class MainActivity extends AppCompatActivity {
             recognizeKwsButton.setEnabled(false);
             recognizeIntentButton.setEnabled(false);
             recognizeIntentKwsButton.setEnabled(false);
+            meetingButton.setEnabled(false);
             translateButton.setEnabled(false);
         });
     }
@@ -826,6 +698,7 @@ public class MainActivity extends AppCompatActivity {
             recognizeKwsButton.setEnabled(true);
             recognizeIntentButton.setEnabled(true);
             recognizeIntentKwsButton.setEnabled(true);
+            meetingButton.setEnabled(true);
             translateButton.setEnabled(true);
         });
     }
@@ -834,17 +707,37 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == SELECT_RECOGNIZE_LANGUAGE_REQUEST) {
             // Make sure the request was successful
             if (resultCode == RESULT_OK) {
-                String language = data.getStringExtra("language");
-                languageRecognition = mapRecolanguageCode.get(language);
+                String language = data.getStringExtra("languageOrDevice");
+                languageRecognition = getCode(0,language);
                 recognizeLanguageTextView.setText(language);
             }
         }
         if (requestCode == SELECT_TRANSLATE_LANGUAGE_REQUEST) {
             // Make sure the request was successful
             if (resultCode == RESULT_OK) {
-                String language = data.getStringExtra("language");
-                translateLanguage = mapTranlanguageCode.get(language);
+                String language = data.getStringExtra("languageOrDevice");
+                translateLanguage = getCode(1,language);
                 translateLanguageTextView.setText(language);
+            }
+        }
+        if (requestCode == SELECT_DEVICE_MICROPHONE_REQUEST) {
+            // Make sure the request was successful
+            if (resultCode == RESULT_OK) {
+                String deviceMicrophone = data.getStringExtra("languageOrDevice");
+                DeviceGeometry = deviceMicrophone;
+                SelectedGeometry = deviceMicrophone;
+                Log.i("Setting Microphone", deviceMicrophone);
+            }
+        }
+        if(requestCode == Setting_keys){
+            if(resultCode == RESULT_OK){
+                ArrayList<String> keys = new ArrayList<>();
+                keys = data.getStringArrayListExtra("keys");
+                SpeechSubscriptionKey = keys.get(0);
+                SpeechRegion = keys.get(1);
+                LuisSubscriptionKey = keys.get(2);
+                LuisRegion = keys.get(3);
+                LuisAppId = keys.get(4);
             }
         }
     }
@@ -865,65 +758,7 @@ public class MainActivity extends AppCompatActivity {
     static {
         s_executorService = Executors.newCachedThreadPool();
     }
-    public class AudioPlayingThread implements Runnable
-    {
-        private AudioTrack audioTrack;
-        private Queue<byte[]> queue;
 
-        public AudioPlayingThread()
-        {
-            audioTrack = new AudioTrack(
-                    new AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                            .build(),
-                    new AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(16000)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build(),
-                    AudioTrack.getMinBufferSize(16000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT) * 2,
-                    AudioTrack.MODE_STREAM,
-                    AudioManager.AUDIO_SESSION_ID_GENERATE);
-            audioTrack.play();
-
-            queue = new LinkedBlockingQueue<byte[]>(10);
-        }
-
-        public void run()
-        {
-            while (true)
-            {
-                if (!queue.isEmpty())
-                {
-                    byte[] dataBlock = queue.remove();
-                    audioTrack.write(dataBlock, 44, dataBlock.length - 44);
-                }
-            }
-        }
-
-        public void write(byte[] data)
-        {
-            if (queue.size() < 10) {
-                queue.add(data);
-            }
-        }
-
-        public void pause()
-        {
-            try {
-                queue.clear();
-                int audioState = audioTrack.getState();
-                if (audioTrack != null && audioState == AudioTrack.STATE_INITIALIZED) {
-                    audioTrack.pause();
-                    audioTrack.flush();
-                    audioTrack.play();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
     //make sure the system time is synchronized.
     public boolean checkSystemTime(){
         Calendar calendar = Calendar.getInstance();
@@ -938,4 +773,28 @@ public class MainActivity extends AppCompatActivity {
         }
         return true;
     }
+    public static boolean checkSpeechKey() {
+        if (SpeechSubscriptionKey.startsWith("<") || SpeechSubscriptionKey.endsWith(">")) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+    public static boolean checkLuisKey(){
+        if (LuisSubscriptionKey.startsWith("<") || LuisSubscriptionKey.endsWith(">")) {
+           return false;
+        }else{
+            return true;
+        }
+    }
+    public static String getSpeechSubscriptionKey(){
+        return SpeechSubscriptionKey;
+    }
+    public static String getSpeechRegion(){
+        return SpeechRegion;
+    }
+    public static String getLuisSubscriptionKey() {return LuisSubscriptionKey;}
+    public static String getLuisRegion() {return LuisRegion;}
+    public static String getLuisAppId() { return LuisAppId; }
+
 }
