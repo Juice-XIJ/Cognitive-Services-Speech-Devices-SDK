@@ -4,18 +4,27 @@ package com.microsoft.coginitiveservices.speech.samples.sdsdkstarterapp;
 // Licensed under the MIT license. See LICENSE.md file in the project root for full license information.
 //
 
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
+
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 
+import com.microsoft.cognitiveservices.speech.PropertyId;
 import com.microsoft.cognitiveservices.speech.audio.PullAudioInputStreamCallback;
 
 public class WavFileAudioInputStream extends PullAudioInputStreamCallback {
     private FileInputStream audioInputStream;
     private int audioInputStreamAvailableLength;
 
-    public WavFileAudioInputStream(String filename) {
+    public WavFileAudioInputStream(AssetManager assetManager, String filename) {
         try {
-            this.audioInputStream = new FileInputStream(filename);
+            AssetFileDescriptor assetFileDescriptor = assetManager.openFd(filename);
+            //FileDescriptor fileDescriptor = assetFileDescriptor.getFileDescriptor();
+            //FileInputStream stream = new FileInputStream(fileDescriptor);
+            this.audioInputStream = assetFileDescriptor.createInputStream();
+            //this.audioInputStream = new FileInputStream(filename);
 
             byte header[] = new byte[4];
             int numRead = this.audioInputStream.read(header);
@@ -98,6 +107,18 @@ public class WavFileAudioInputStream extends PullAudioInputStreamCallback {
         } catch (Exception e) {
             throw new IllegalAccessError(e.toString());
         }
+    }
+
+    @Override
+    public String getProperty(PropertyId id) {
+        String propertyIdStr = "";
+        if (PropertyId.DataChunk_SpeakerId == id) {
+            propertyIdStr = "speaker123";
+        }
+        else if(PropertyId.DataChunk_TimeStamp == id) {
+            propertyIdStr = "somefaketimestamp";
+        }
+        return propertyIdStr;
     }
 
     /**
