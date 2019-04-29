@@ -53,18 +53,18 @@ import static com.microsoft.cognitiveservices.speech.ResultReason.RecognizingSpe
 public class MainActivity extends AppCompatActivity {
 
     // Subscription
-    private static String SpeechSubscriptionKey = "";
+    private static String SpeechSubscriptionKey = "918301eb1a8e40dcb9b6968fa4a2d027";
     private static String SpeechRegion = "westus"; // You can change this, if you want to test the intent, and your LUIS region is different.
-    private static String LuisSubscriptionKey = "";
+    private static String LuisSubscriptionKey = "499f42ea79f04a8db71929d8e46f3ff0";
     private static String LuisRegion = "westus2"; // you can change this, if you want to test the intent, and your LUIS region is different.
-    private static String LuisAppId = "";
+    private static String LuisAppId = "43929081ad0a47fba3294533cf1af342";
 
     private static final String Keyword = "Computer";
     private static final String KeywordModel = "kws-computer.zip";
-    private static String DeviceGeometry = "Linear4";
-    private static String SelectedGeometry = "Linear4";
-    //private static final String DeviceGeometry = "Circular6+1";
-   // private static final String SelectedGeometry = "Circular6+1";
+    //private static String DeviceGeometry = "Linear4";
+    //private static String SelectedGeometry = "Linear4";
+    private static String DeviceGeometry = "Circular6+1";
+    private static String SelectedGeometry = "Circular6+1";
 
 
     // Note: point this to a wav file in case you don't want to
