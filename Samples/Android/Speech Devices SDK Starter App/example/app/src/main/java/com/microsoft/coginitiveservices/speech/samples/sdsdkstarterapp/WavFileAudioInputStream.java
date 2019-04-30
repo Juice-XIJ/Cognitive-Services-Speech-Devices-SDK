@@ -6,79 +6,130 @@ package com.microsoft.coginitiveservices.speech.samples.sdsdkstarterapp;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
+import android.util.Log;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 
 import com.microsoft.cognitiveservices.speech.PropertyId;
+import com.microsoft.cognitiveservices.speech.audio.AudioStreamFormat;
 import com.microsoft.cognitiveservices.speech.audio.PullAudioInputStreamCallback;
 
 public class WavFileAudioInputStream extends PullAudioInputStreamCallback {
-    private FileInputStream audioInputStream;
+    private FileInputStream reader;
     private int audioInputStreamAvailableLength;
+    private AudioStreamFormat wavFormat;
 
-    public WavFileAudioInputStream(AssetManager assetManager, String filename) {
+    public WavFileAudioInputStream(String filename) {
         try {
-            AssetFileDescriptor assetFileDescriptor = assetManager.openFd(filename);
             //FileDescriptor fileDescriptor = assetFileDescriptor.getFileDescriptor();
             //FileInputStream stream = new FileInputStream(fileDescriptor);
-            this.audioInputStream = assetFileDescriptor.createInputStream();
-            //this.audioInputStream = new FileInputStream(filename);
+//            this.audioInputStream = assetFileDescriptor.createInputStream();
+            this.reader = new FileInputStream(filename);
 
-            byte header[] = new byte[4];
-            int numRead = this.audioInputStream.read(header);
-            if (numRead != header.length || header[0] != 'R' || header[1] != 'I' || header[2] != 'F' || header[3] != 'F') {
-                throw new IllegalArgumentException("not a wave file");
+            // Note: assumption about order of chunks
+            // Tag "RIFF"
+            byte data[] = new byte[4];
+            int numRead = reader.read(data, 0, 4);
+            ThrowIfFalse((numRead == 4) && (data[0] == 'R') && (data[1] == 'I') && (data[2] == 'F') && (data[3] == 'F'), "RIFF");
+
+            // Chunk size
+            /* int fileLength = */
+            ReadInt32(reader);
+
+            // Subchunk, Wave Header
+            // Subchunk, Format
+            // Tag: "WAVE"
+            numRead = reader.read(data, 0, 4);
+            ThrowIfFalse((numRead == 4) && (data[0] == 'W') && (data[1] == 'A') && (data[2] == 'V') && (data[3] == 'E'), "WAVE");
+
+            // Tag: "fmt"
+            numRead = reader.read(data, 0, 4);
+            ThrowIfFalse((numRead == 4) && (data[0] == 'f') && (data[1] == 'm') && (data[2] == 't') && (data[3] == ' '), "fmt ");
+
+            // chunk format size
+            long formatSize = ReadInt32(reader);
+            ThrowIfFalse(formatSize >= 16, "formatSize");
+
+            int formatTag = ReadUInt16(reader);
+            int channels = ReadUInt16(reader);
+            int samplesPerSec = (int) ReadUInt32(reader);
+            int avgBytesPerSec = (int) ReadUInt32(reader);
+            int blockAlign = ReadUInt16(reader);
+            int bitsPerSample = ReadUInt16(reader);
+
+            this.wavFormat = AudioStreamFormat.getWaveFormatPCM(samplesPerSec, (byte)bitsPerSample, (byte)channels);
+
+            // Until now we have read 16 bytes in format, the rest is cbSize and is ignored
+            // for now.
+            if (formatSize > 16) {
+                numRead = reader.read(new byte[(int) (formatSize - 16)]);
+                ThrowIfFalse(numRead == (int)(formatSize - 16), "could not skip extended format");
             }
 
-            if (4 != this.audioInputStream.read(header)) {
-                throw new IllegalArgumentException("could not read length");
-            }
-
-            numRead = this.audioInputStream.read(header);
-            if (numRead != header.length || header[0] != 'W' || header[1] != 'A' || header[2] != 'V' || header[3] != 'E') {
-                throw new IllegalArgumentException("not a wave riff in file");
-            }
-
-            byte size[] = new byte[4];
-            while(true) {
-                if (header.length != this.audioInputStream.read(header)) {
-                    throw new IllegalArgumentException("could not read chunk id");
-                }
-
-                if (size.length != this.audioInputStream.read(size)) {
-                    throw new IllegalArgumentException("could not read chunk size");
-                }
-
-                int chunkSize = ((size[0] & 0xff) | ((size[1] & 0xff) << 8) | ((size[2] & 0xff) << 16) | ((size[3] & 0xff) << 24));
-                if (chunkSize <= 0) {
-                    throw new IllegalArgumentException("could not decode chunk size: " + chunkSize);
-                }
-
-                // found the data chunk, so save its length
-                // and break out the search
-                if (header[0] == 'd' && header[1] == 'a' && header[2] == 't' && header[3] == 'a') {
-                    this.audioInputStreamAvailableLength = chunkSize;
+            boolean foundDataChunk = false;
+            while (!foundDataChunk)
+            {
+                reader.read(data, 0, 4);
+                int size = ReadInt32(reader);
+                if (data[0] == 'd' && data[1] == 'a' && data[2] == 't' && data[3] == 'a')
+                {
+                    this.audioInputStreamAvailableLength = size;
+                    foundDataChunk = true;
                     break;
                 }
-
-                if (chunkSize != this.audioInputStream.skip(chunkSize)) {
-                    throw new IllegalArgumentException("could not skip chunk size: " + chunkSize);
-                }
+                reader.read(new byte[(int) (size)]);
             }
+            ThrowIfFalse(foundDataChunk == true, "Doesn't contain a data chunk!");
+
         } catch (IOException ex) {
-            if (this.audioInputStream != null) {
+            if (this.reader != null) {
                 try {
-                    this.audioInputStream.close();
+                    this.reader.close();
                 } catch (IOException e) {
-                    // ignore
+                    Log.i("Exception", e.toString());
                 }
-                this.audioInputStream = null;
+                this.reader = null;
             }
 
             // Handle the error ...
             throw new IllegalArgumentException(ex);
+        }
+    }
+
+    public AudioStreamFormat getWavFormat()
+    {
+        return this.wavFormat;
+    }
+
+    private int ReadInt32(FileInputStream inputStream) throws IOException {
+        int n = 0;
+        for (int i = 0; i < 4; i++) {
+            n |= inputStream.read() << (i * 8);
+        }
+        return n;
+    }
+
+    private long ReadUInt32(FileInputStream inputStream) throws IOException {
+        long n = 0;
+        for (int i = 0; i < 4; i++) {
+            n |= inputStream.read() << (i * 8);
+        }
+        return n;
+    }
+
+    private int ReadUInt16(FileInputStream inputStream) throws IOException {
+        int n = 0;
+        for (int i = 0; i < 2; i++) {
+            n |= inputStream.read() << (i * 8);
+        }
+        return n;
+    }
+
+    private static void ThrowIfFalse(Boolean condition, String message) {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
         }
     }
 
@@ -98,11 +149,12 @@ public class WavFileAudioInputStream extends PullAudioInputStreamCallback {
             // only read the data chunk, ignore any
             // trailing data
             int wantRead = Math.min(this.audioInputStreamAvailableLength, dataBuffer.length);
-
-            int numRead = audioInputStream.read(dataBuffer, 0, wantRead);
+            //Log.i("length-start", "start");
+            int numRead = reader.read(dataBuffer, 0, wantRead);
             int retLength = (numRead > 0) ? numRead : 0;
 
             this.audioInputStreamAvailableLength -= retLength;
+            //Log.i("length-end", String.valueOf(retLength));
             return retLength;
         } catch (Exception e) {
             throw new IllegalAccessError(e.toString());
@@ -128,8 +180,8 @@ public class WavFileAudioInputStream extends PullAudioInputStreamCallback {
     public void close() {
         try {
             this.audioInputStreamAvailableLength = 0;
-            this.audioInputStream.close();
-            this.audioInputStream = null;
+            this.reader.close();
+            this.reader = null;
         } catch (IOException | NullPointerException e) {
             throw new IllegalAccessError(e.toString());
         }
